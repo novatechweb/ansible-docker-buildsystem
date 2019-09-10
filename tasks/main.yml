@@ -1,26 +1,14 @@
 ---
-- assert:
+- name: Check preconditions
+  assert:
     that:
     - docker_projects_dir is defined
-    - container_addr_map.build.ip_addr is defined
-    - container_addr_map.testssh.ip_addr is defined
+    - build_ip_addr is defined
+    - testssh_ip_addr is defined
     - buildsystem_ssh_prod_user_password is defined
     - buildsystem_ssh_root_user_password is defined
     - buildsystem_database_root_password is defined
     - docker_restore_config_base_dir is defined
-
-
-- name: Check that docker is installed
-  yum:
-    name: docker
-    state: present
-
-
-- name: Make sure docker service is started
-  service:
-    name: docker
-    state: started
-
 
 - name: Make directory for checkout
   file:
@@ -37,22 +25,25 @@
   with_dict: "{{ build_system_docker_repos }}"
 
 
-- include: docker_containers/datacontainer_buildsystem.yml
-- include: docker_containers/datacontainer_database.yml
-#- include: docker_containers/datacontainer_ipkg.yml
-- include: docker_containers/datacontainer_iso.yml
-- include: docker_containers/datacontainer_ncdrelease.yml
-- include: docker_containers/datacontainer_testclient.yml
-- include: docker_containers/datacontainer_tftp.yml
+- import_tasks: docker_containers/datacontainer_buildsystem.yml
+- import_tasks: docker_containers/datacontainer_database.yml
+#- import_tasks: docker_containers/datacontainer_ipkg.yml
+- import_tasks: docker_containers/datacontainer_iso.yml
+- import_tasks: docker_containers/datacontainer_ncdrelease.yml
+- import_tasks: docker_containers/datacontainer_testclient.yml
+- import_tasks: docker_containers/datacontainer_tftp.yml
 
-- include: docker_containers/server_database.yml
-- include: docker_containers/service_cron.yml
-- include: docker_containers/server_tftp.yml
-- include: docker_containers/server_ssh.yml
-- include: docker_containers/server_http.yml
-- include: docker_containers/server_ssh_prod.yml
+- import_tasks: docker_containers/server_database.yml
+- import_tasks: docker_containers/service_cron.yml
+- import_tasks: docker_containers/server_tftp.yml
+- import_tasks: docker_containers/server_ssh.yml
+- import_tasks: docker_containers/server_http.yml
+- import_tasks: docker_containers/server_ssh_prod.yml
 
-- include: docker_containers/service_backup.yml
+- import_tasks: docker_containers/service_backup.yml
+
+- import_tasks: docker_containers/server_database_ddio.yml
+- import_tasks: docker_containers/server_tftp_ddio.yml
 
 - name: Copy Build System default ssh key to user directroy
   fetch:
@@ -61,24 +52,11 @@
     flat: yes
 
 - name: Setting ssh key file permissions
-  sudo: false
+  become: false
   local_action:
     module: file
     path: ~/.ssh/id_rsa_buildsystem_default
     mode: 0600
-
-# *****************************************************************************
-# Setup the directory where the backup and restore is to take place
-
-- name: restore dir
-  file:
-    state: directory
-    path: '{{ restore_buildsystem_docker_dir }}'
-    owner: root
-    group: tape
-    mode: 'u=rwx,g=rwx,o=rx'
-    recurse: no
-    setype: svirt_sandbox_file_t
 
 - name: docker_container.conf dir
   file:
@@ -102,6 +80,11 @@
     src: before_backup_buildsystem.j2
     dest: /usr/libexec/bacula/backup-scripts/56.before_backup.buildsystem
 
+- name: Create before_backup script for DDIO
+  template:
+    src: before_backup_ddio.j2
+    dest: /usr/libexec/bacula/backup-scripts/56.before_backup.ddio
+
 - name: Create before_backup script for the Support Site
   template:
     src: before_backup_supportsite.j2
@@ -111,6 +94,11 @@
   template:
     src: after_backup_buildsystem.j2
     dest: /usr/libexec/bacula/backup-scripts/56.after_backup.buildsystem
+
+- name: Create after_backup script for DDIO
+  template:
+    src: after_backup_ddio.j2
+    dest: /usr/libexec/bacula/backup-scripts/56.after_backup.ddio
 
 - name: Create after_backup script for the Support Site
   template:
@@ -131,5 +119,5 @@
 # *****************************************************************************
 # restore?
 
-- include: restore.yml
+- import_tasks: restore.yml
   when: st_buildsystem_restore.stat.exists == False

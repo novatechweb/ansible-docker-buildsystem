@@ -1,23 +1,25 @@
 {% if docker_backup_dir is defined %}
-{% if backup_supportsite_docker_dir is defined %}
+{% if backup_buildsystem_docker_dir is defined %}
 {% if name_prefix is defined %}
 
 #===============================================================================
-# Clean up Support Site backup directory
+# Clean up Build System backup directory
 docker run --rm \
     -v {{ docker_backup_dir }}:/clean:z \
     --name Backup_Restore_BS_SS \
     {{ name_prefix }}teststation_supportsite_backup_restore_image \
-    cleanup_supportsite
+    cleanup_ddio
 
 #===============================================================================
-# Backup Support Site
-mkdir -p -m u=rwx,g=rwx,o= {{ backup_supportsite_docker_dir }}
+# Backup Build System
+mkdir -p -m u=rwx,g=rwx,o= {{ backup_buildsystem_docker_dir }}
 docker run --rm \
-    -v {{ backup_supportsite_docker_dir }}:/backup:z \
+    -v {{ backup_buildsystem_docker_dir }}:/backup:z \
+    --volumes-from={{ name_prefix }}TestStation_tftp_ddio_server \
+    --link={{ name_prefix }}TestStation_ddio_database_server:ddio_mysql_server \
     --name Backup_Restore_BS_SS \
     {{ name_prefix }}teststation_supportsite_backup_restore_image \
-    backup_supportsite
+    backup_ddio
 
 {% endif %}
 {% endif %}
